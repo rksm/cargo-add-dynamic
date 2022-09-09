@@ -4,7 +4,9 @@ IFS=$'\n\t'
 
 
 if [[ -n $(grep foo-dynamic Cargo.toml) ]]; then
-    cargo rm foo
+    # poor mans cargo rm
+    cat Cargo.toml | grep -v foo-dynamic > Cargo.toml.copy
+    mv Cargo.toml{.copy,}
 fi
 
 if [[ -d foo-dynamic ]]; then
