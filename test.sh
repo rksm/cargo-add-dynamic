@@ -4,4 +4,9 @@ IFS=$'\n\t'
 
 ./clean.sh
 
-RUST_BACKTRACE=1 RUST_LOG=trace cargo run -- foo
+./install.sh
+
+# RUST_BACKTRACE=1 RUST_LOG=trace cargo run -- foo
+cargo add-dynamic foo
+
+./clean.sh

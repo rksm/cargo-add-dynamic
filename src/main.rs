@@ -3,7 +3,7 @@ use std::{fs, io::Write, path::PathBuf};
 use anyhow::Result;
 use clap::{App, Arg};
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 struct Opts {
     crate_name: String,
     name: String,
@@ -18,7 +18,13 @@ struct Opts {
 
 impl Opts {
     fn from_args(app: App) -> Self {
-        let args = app.get_matches();
+        // for cargo invocation... how to do this correctly?
+        let mut args = std::env::args().collect::<Vec<_>>();
+        if args[1] == "add-dynamic" {
+            args.remove(1);
+        }
+
+        let args = app.get_matches_from(args);
 
         let crate_name = args.value_of("crate-name").expect("crate_name").to_string();
 
@@ -43,6 +49,10 @@ impl Opts {
         let offline = args.is_present("offline");
         let no_default_features = args.is_present("no-default-features");
 
+        let features = args
+            .values_of("features")
+            .map(|features| features.map(|ea| ea.to_string()).collect());
+
         Self {
             crate_name,
             name,
@@ -52,7 +62,7 @@ impl Opts {
             offline,
             no_default_features,
             package,
-            ..Default::default()
+            features,
         }
     }
 
@@ -62,9 +72,14 @@ impl Opts {
 }
 
 fn main() {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::builder().parse_lossy("debug")),
+        )
+        .init();
 
-    let app = App::new("cargo-add-dynamic")
+    let app = App::new("add-dynamic")
         .arg(Arg::new("crate-name").required(true))
         .arg(Arg::new("optional").long("optional"))
         .arg(Arg::new("offline").long("offline"))
@@ -103,15 +118,9 @@ fn main() {
     let opts = Opts::from_args(app);
 
     run(opts).unwrap();
-    // if let Err(err) = run(opts) {
-    //     eprintln!("Error creating dynamic library: {err}");
-    //     std::process::exit(1);
-    // }
 }
 
 fn run(opts: Opts) -> Result<()> {
-    dbg!(&opts);
-
     cargo_new_lib(&opts)?;
     cargo_add_dependency_to_new_lib(&opts)?;
     modify_dynamic_lib(&opts)?;
@@ -179,15 +188,17 @@ fn cargo_add_dependency_to_new_lib(opts: &Opts) -> Result<()> {
 }
 
 fn modify_dynamic_lib(opts: &Opts) -> Result<()> {
-    let mut cargo_toml = fs::OpenOptions::new()
-        .append(true)
-        .open(opts.lib_dir.join("Cargo.toml"))?;
+    let cargo_toml = opts.lib_dir.join("Cargo.toml");
+    tracing::debug!("Updating {cargo_toml:?}");
+    let mut cargo_toml = fs::OpenOptions::new().append(true).open(cargo_toml)?;
     writeln!(cargo_toml, "\n[lib]\ncrate-type = [\"dylib\"]")?;
 
+    let lib_rs = opts.lib_dir.join("src/lib.rs");
+    tracing::debug!("Updating {lib_rs:?}");
     let mut lib_rs = fs::OpenOptions::new()
         .truncate(true)
         .write(true)
-        .open(opts.lib_dir.join("src/lib.rs"))?;
+        .open(lib_rs)?;
     let crate_name = opts.crate_name.replace('-', "_");
     writeln!(lib_rs, "pub use {crate_name}::*;")?;
 
