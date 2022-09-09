@@ -1,5 +1,7 @@
 # cargo add-dynamic
 
+[![Crates.io](https://img.shields.io/crates/v/cargo-add-dynamic)](https://crates.io/crates/cargo-add-dynamic)
+
 This cargo command allows to wrap dependencies as dylibs.
 
 For why you might want this see [Speeding up incremental Rust compilation with dylibs](https://robert.kra.hn/posts/2022-09-09-speeding-up-incremental-rust-compilation-with-dylibs/).
