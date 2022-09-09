@@ -71,7 +71,7 @@ impl Opts {
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -117,7 +117,8 @@ fn main() {
 
     let opts = Opts::from_args(app);
 
-    run(opts).unwrap();
+    run(opts)?;
+    Ok(())
 }
 
 fn run(opts: Opts) -> Result<()> {
