@@ -3,6 +3,8 @@ use std::{fs, io::Write, path::PathBuf};
 use anyhow::Result;
 use clap::{App, Arg};
 
+pub const EXIT_CODE_ERROR: i32 = 2;
+
 #[derive(Debug)]
 struct Opts {
     crate_name: String,
@@ -141,7 +143,7 @@ fn cargo_new_lib(opts: &Opts) -> Result<()> {
         .and_then(|mut proc| proc.wait())?;
 
     if !result.success() {
-        let code = result.code().unwrap_or(2);
+        let code = result.code().unwrap_or(EXIT_CODE_ERROR);
         std::process::exit(code);
     }
 
@@ -182,7 +184,7 @@ fn cargo_add_dependency_to_new_lib(opts: &Opts) -> Result<()> {
         .and_then(|mut proc| proc.wait())?;
 
     if !result.success() {
-        let code = result.code().unwrap_or(2);
+        let code = result.code().unwrap_or(EXIT_CODE_ERROR);
         std::process::exit(code);
     }
     Ok(())
@@ -237,7 +239,7 @@ fn cargo_add_dynamic_library_to_target_package(opts: &Opts) -> Result<()> {
         .and_then(|mut proc| proc.wait())?;
 
     if !result.success() {
-        let code = result.code().unwrap_or(2);
+        let code = result.code().unwrap_or(EXIT_CODE_ERROR);
         std::process::exit(code);
     }
     Ok(())
