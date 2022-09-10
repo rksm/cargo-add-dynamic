@@ -5,6 +5,7 @@ use clap::{App, Arg};
 
 #[derive(Debug)]
 struct Opts {
+    verbose: bool,
     crate_name: String,
     name: String,
     lib_dir: PathBuf,
@@ -14,6 +15,7 @@ struct Opts {
     features: Option<Vec<String>>,
     path: Option<PathBuf>,
     package: Option<String>,
+    rename: Option<String>,
 }
 
 impl Opts {
@@ -44,9 +46,19 @@ impl Opts {
 
         let package = args.value_of("package").map(|p| p.to_string());
 
-        let lib_dir = PathBuf::from(&name);
+        let rename = args.value_of("rename").map(|n| n.to_string());
+
+        let lib_dir = args
+            .value_of("lib-dir")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(&name));
+
+        let verbose = args.is_present("verbose");
+
         let optional = args.is_present("optional");
+
         let offline = args.is_present("offline");
+
         let no_default_features = args.is_present("no-default-features");
 
         let features = args
@@ -54,6 +66,7 @@ impl Opts {
             .map(|features| features.map(|ea| ea.to_string()).collect());
 
         Self {
+            verbose,
             crate_name,
             name,
             lib_dir,
@@ -63,6 +76,7 @@ impl Opts {
             no_default_features,
             package,
             features,
+            rename,
         }
     }
 
@@ -72,20 +86,33 @@ impl Opts {
 }
 
 fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::builder().parse_lossy("debug")),
-        )
-        .init();
-
     let app = App::new("add-dynamic")
-        .arg(Arg::new("crate-name").required(true))
-        .arg(Arg::new("optional").long("optional"))
-        .arg(Arg::new("offline").long("offline"))
-        .arg(Arg::new("no-default-features").long("no-default-features"))
+        .about("Cargo command similar to `cargo add` that will add a dependency <DEP> as a dynamic library (dylib) crate by creating a new sub-package whose only dependency is the specified <DEP> and whose crate-type is [\"dylib\"].")
+        .arg(Arg::new("crate-name")
+             .value_name("DEP")
+             .required(true))
+        .arg(
+            Arg::new("optional")
+                .help("Mark the dependency as optional. The package name will be exposed as feature of your crate.")
+                .long("optional"),
+        )
+        .arg(
+            Arg::new("verbose")
+                .help("Additional (debug) logging.")
+                .long("verbose")
+                .short('v'),
+        )
+        .arg(Arg::new("offline")
+             .help("Run without accessing the network")
+             .long("offline"))
+        .arg(
+            Arg::new("no-default-features")
+                .help("Disable the default features")
+                .long("no-default-features"),
+        )
         .arg(
             Arg::new("features")
+                .help("Space or comma separated list of features to activate")
                 .long("features")
                 .short('F')
                 .multiple_values(true)
@@ -97,13 +124,29 @@ fn main() {
             Arg::new("path")
                 .help("Filesystem path to local crate to add")
                 .long("path")
+                .value_name("PATH")
+                .required(false),
+        )
+        .arg(
+            Arg::new("rename")
+                .help("Rename the dependency\nExample uses:\n- Depending on multiple versions of a crate\n- Depend on crates with the same name from different registries")
+                .long("rename")
+                .value_name("NAME")
                 .required(false),
         )
         .arg(
             Arg::new("name")
-                .help("Name of the dynamic library, defaults to ${crate-name}-dynamic")
+                .help("Name of the dynamic library, defaults to <DEP>-dynamic")
                 .long("name")
                 .short('n')
+                .value_name("NAME")
+                .required(false),
+        )
+        .arg(
+            Arg::new("lib-dir")
+                .help("Directory for the new sub-package. Defaults to <DEP>-dynamic")
+                .long("lib-dir")
+                .value_name("DIR")
                 .required(false),
         )
         .arg(
@@ -116,6 +159,15 @@ fn main() {
         );
 
     let opts = Opts::from_args(app);
+
+    let level = if opts.verbose { "debug" } else { "info" };
+
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::builder().parse_lossy(level)),
+        )
+        .init();
 
     run(opts).unwrap();
 }
@@ -130,7 +182,7 @@ fn run(opts: Opts) -> Result<()> {
 }
 
 fn cargo_new_lib(opts: &Opts) -> Result<()> {
-    let args = vec!["new", "--lib", "--name", &opts.name, opts.lib_dir_str()];
+    let mut args = vec!["new", "--lib", "--name", &opts.name, opts.lib_dir_str()];
 
     tracing::debug!("running cargo {}", args.join(" "));
 
@@ -206,11 +258,13 @@ fn modify_dynamic_lib(opts: &Opts) -> Result<()> {
 }
 
 fn cargo_add_dynamic_library_to_target_package(opts: &Opts) -> Result<()> {
+    let name = opts.rename.as_ref().unwrap_or(&opts.crate_name);
+
     let mut args = vec![
         "add",
         &opts.name,
         "--rename",
-        &opts.crate_name,
+        name,
         "--path",
         opts.lib_dir_str(),
     ];

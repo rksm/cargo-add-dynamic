@@ -53,20 +53,30 @@ And it will add `polars = { version = "0.1.0", path = "polars-dynamic", package 
 
 ```
 add-dynamic 
+Cargo command similar to `cargo add` that will add a dependency <DEP> as a dynamic library (dylib)
+crate by creating a new sub-package whose only dependency is the specified <DEP> and whose
+crate-type is ["dylib"].
 
 USAGE:
-    cargo-add-dynamic [OPTIONS] <crate-name>
+    cargo-add-dynamic [OPTIONS] <DEP>
 
 ARGS:
-    <crate-name>    
+    <DEP>    
 
 OPTIONS:
-    -F, --features <FEATURES>...    
+    -F, --features <FEATURES>...    Space or comma separated list of features to activate
     -h, --help                      Print help information
-    -n, --name                      Name of the dynamic library, defaults to ${crate-name}-dynamic
-        --no-default-features       
-        --offline                   
-        --optional                  
+        --lib-dir <DIR>             Directory for the new sub-package. Defaults to <DEP>-dynamic
+    -n, --name <NAME>               Name of the dynamic library, defaults to <DEP>-dynamic
+        --no-default-features       Disable the default features
+        --offline                   Run without accessing the network
+        --optional                  Mark the dependency as optional. The package name will be
+                                    exposed as feature of your crate.
     -p, --package <SPEC>            Package to modify
-        --path                      Filesystem path to local crate to add
+        --path <PATH>               Filesystem path to local crate to add
+        --rename <NAME>             Rename the dependency
+                                    Example uses:
+                                    - Depending on multiple versions of a crate
+                                    - Depend on crates with the same name from different registries
+    -v, --verbose                   Additional (debug) logging.
 ```
