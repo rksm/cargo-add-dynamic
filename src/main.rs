@@ -182,7 +182,7 @@ fn run(opts: Opts) -> Result<()> {
 }
 
 fn cargo_new_lib(opts: &Opts) -> Result<()> {
-    let mut args = vec!["new", "--lib", "--name", &opts.name, opts.lib_dir_str()];
+    let args = vec!["new", "--lib", "--name", &opts.name, opts.lib_dir_str()];
 
     tracing::debug!("running cargo {}", args.join(" "));
 
